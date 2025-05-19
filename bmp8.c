@@ -1,77 +1,72 @@
 #include "bmp8.h"
 #include <string.h>
+#include <math.h>
 
-t_bmp8 * bmp8_loadImage(const char * filename) {
-    printf("Attempting to open file: %s\n", filename);
-
-    FILE * f = fopen(filename, "rb");
-    if (!f) {
-        printf("Error: Cannot open file.\n");
+t_bmp8* bmp8_loadImage(const char* filename) {
+    FILE* file = fopen(filename, "rb");
+    if (!file) {
+        printf("Error: Cannot open file %s\n", filename);
         return NULL;
     }
 
-    unsigned char buffer[54];
-    if (fread(buffer, 1, 54, f) != 54) {
-        printf("Error: Cannot read BMP header.\n");
-        fclose(f);
+    t_bmp8* img = (t_bmp8*)malloc(sizeof(t_bmp8));
+    if (!img) {
+        fclose(file);
+        printf("Error: Memory allocation failed\n");
         return NULL;
     }
 
-    unsigned int width = *(unsigned int*)(&buffer[18]);
-    unsigned int height = *(unsigned int*)(&buffer[22]);
-    unsigned short int colorDepth = *(unsigned short int*)(&buffer[28]);
-    unsigned int dataSize = *(unsigned int*)(&buffer[34]);
 
-    printf("Image properties: Width=%u, Height=%u, ColorDepth=%u, DataSize=%u\n",
-           width, height, colorDepth, dataSize);
-
-    if (colorDepth != 8) {
-        printf("Error: Image is not 8-bit BMP.\n");
-        fclose(f);
+    if (fread(img->header, sizeof(unsigned char), 54, file) != 54) {
+        printf("Error: Invalid BMP file format\n");
+        free(img);
+        fclose(file);
         return NULL;
     }
 
-    unsigned char colortable[1024];
-    if (fread(colortable, 1, 1024, f) != 1024) {
-        printf("Error: Cannot read color table.\n");
-        fclose(f);
+
+    img->width = *(unsigned int*)&img->header[18];
+    img->height = *(unsigned int*)&img->header[22];
+    img->colorDepth = *(unsigned int*)&img->header[28];
+    img->dataSize = *(unsigned int*)&img->header[34];
+
+    // Verify it's an 8-bit image
+    if (img->colorDepth != 8) {
+        printf("Error: Image must be 8-bit grayscale\n");
+        free(img);
+        fclose(file);
         return NULL;
     }
 
-    unsigned char * data = (unsigned char*)malloc(dataSize);
-    if (!data) {
-        printf("Error: Memory allocation failed.\n");
-        fclose(f);
+
+    if (fread(img->colorTable, sizeof(unsigned char), 1024, file) != 1024) {
+        printf("Error: Could not read color table\n");
+        free(img);
+        fclose(file);
         return NULL;
     }
 
-    if (fread(data, 1, dataSize, f) != dataSize) {
-        printf("Error: Cannot read image data.\n");
-        free(data);
-        fclose(f);
+
+    img->data = (unsigned char*)malloc(img->dataSize);
+    if (!img->data) {
+        printf("Error: Memory allocation failed for image data\n");
+        free(img);
+        fclose(file);
         return NULL;
     }
 
-    fclose(f);
 
-    t_bmp8 * image = (t_bmp8 *)malloc(sizeof(t_bmp8));
-    if (!image) {
-        printf("Error: Memory allocation for image struct failed.\n");
-        free(data);
+    if (fread(img->data, sizeof(unsigned char), img->dataSize, file) != img->dataSize) {
+        printf("Error: Could not read image data\n");
+        free(img->data);
+        free(img);
+        fclose(file);
         return NULL;
     }
 
-    memcpy(image->header, buffer, 54);
-    memcpy(image->colorTable, colortable, 1024);
-    image->data = data;
-    image->width = width;
-    image->height = height;
-    image->colorDepth = colorDepth;
-    image->dataSize = dataSize;
-
-    return image;
+    fclose(file);
+    return img;
 }
-
 
 void bmp8_saveImage(const char* filename, t_bmp8* img) {
     if (!img) return;
@@ -82,9 +77,12 @@ void bmp8_saveImage(const char* filename, t_bmp8* img) {
         return;
     }
 
+
     fwrite(img->header, sizeof(unsigned char), 54, file);
 
+
     fwrite(img->colorTable, sizeof(unsigned char), 1024, file);
+
 
     fwrite(img->data, sizeof(unsigned char), img->dataSize, file);
 
@@ -110,7 +108,7 @@ void bmp8_printInfo(t_bmp8* img) {
     printf("  Data Size: %u\n", img->dataSize);
 }
 
-// Image processing functions
+
 void bmp8_negative(t_bmp8* img) {
     if (!img || !img->data) return;
 
@@ -138,7 +136,7 @@ void bmp8_threshold(t_bmp8* img, int threshold) {
     }
 }
 
-// Helper function to allocate 2D array for kernel
+
 float** allocateKernel(int size) {
     float** kernel = (float**)malloc(size * sizeof(float*));
     for (int i = 0; i < size; i++) {
@@ -147,7 +145,7 @@ float** allocateKernel(int size) {
     return kernel;
 }
 
-// Helper function to free kernel
+
 void freeKernel(float** kernel, int size) {
     for (int i = 0; i < size; i++) {
         free(kernel[i]);
@@ -164,12 +162,12 @@ void bmp8_applyFilter(t_bmp8* img, float** kernel, int kernelSize) {
 
     int n = kernelSize / 2;
 
-    // Apply convolution
+
     for (unsigned int y = n; y < img->height - n; y++) {
         for (unsigned int x = n; x < img->width - n; x++) {
             float sum = 0.0f;
 
-            // Apply kernel
+
             for (int i = -n; i <= n; i++) {
                 for (int j = -n; j <= n; j++) {
                     int pixelPos = (y + i) * img->width + (x + j);
@@ -177,7 +175,7 @@ void bmp8_applyFilter(t_bmp8* img, float** kernel, int kernelSize) {
                 }
             }
 
-            // Clamp values
+
             if (sum > 255) sum = 255;
             if (sum < 0) sum = 0;
 
