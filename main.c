@@ -1,5 +1,6 @@
 #include "bmp8.h"
 #include "bmp24.h"
+#include "Histogram_equalization.h"
 #include <stdio.h>
 
 #include <windows.h>
@@ -23,8 +24,8 @@ int main(void) {
     t_bmp8* image8 = NULL;
     t_bmp24* image24 = NULL;
     int choice = 0;
-    while (choice != 5) {
-        printf("Please choose an option:\n  1. Open an image\n  2. Save an image\n  3. Apply a filter\n  4. Display image information\n  5. Quit\n>>> Your choice : ");
+    while (choice != 6) {
+        printf("Please choose an option:\n  1. Open an image\n  2. Save an image\n  3. Apply a filter\n  4. Display image information\n  5. Equalize Historigram\n  6. Quit\n>>> Your choice : ");
         if (scanf(" %d", &choice) != 1) {
             printf("Invalid input! Please enter a number.\n");
             while (getchar() != '\n') {
@@ -181,6 +182,20 @@ int main(void) {
                     printf("Image is NULL\n");
                 break;
             case 5:
+                if (image8 || image24) {
+                    if (image8) {
+                        bmp8_equalize(image8);
+                        printf("8-bit image equalized successfully\n");
+                    }
+                    if (image24) {
+                        bmp24_equalize(image24);
+                        printf("24-bit image equalized successfully\n");
+                    }
+                }
+                else
+                    printf("Image is NULL\n");
+                break;
+            case 6 :
                 break;
             default:
                 printf("Please enter a number between 1 and 5 !!\n");
